@@ -1,0 +1,16 @@
+name: Auto Start VPS on Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📡 Trigger vps.yml workflow
+        run: |
+          curl -X POST https://github.com/Zerioak/scaling-octo-garbanzo/dispatches \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
+            -d '{"event_type": "start-vps", "client_payload": {"vps_name": "autovps", "backup": false}}'
