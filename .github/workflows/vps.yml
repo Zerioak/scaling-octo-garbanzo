@@ -60,6 +60,14 @@ jobs:
           USER_TAG="${{ github.event.client_payload.requester_tag || github.actor }}"
           IP="${{ steps.tailscale_ip.outputs.ip }}"
           SSHLINK="${{ steps.sshx_session.outputs.link }}"
+
+          # Build mention safely
+          if [[ "$USER_ID" =~ ^[0-9]+$ ]] && [[ "$USER_ID" != "000000000000000000" ]]; then
+            MENTION="<@${USER_ID}>"
+          else
+            MENTION=""
+          fi
+
           PAYLOAD=$(jq -n \
             --arg ip "$IP" \
             --arg ssh "$SSHLINK" \
@@ -67,8 +75,9 @@ jobs:
             --arg tag "$USER_TAG" \
             --arg username "biralo" \
             --arg password "biralo" \
+            --arg mention "$MENTION" \
             '{
-              content: ( $userid | test("^[0-9]+$") ? "<@\($userid)>" : "" ),
+              content: $mention,
               embeds: [{
                 title: "🌐 VPS Info",
                 color: 65280,
