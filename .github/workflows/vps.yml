@@ -1,4 +1,4 @@
-name: Continuous Persistent VPS with Tailscale + sshx.io
+name: Continuous Persistent VPS with Tmate + sshx.io
 
 on:
   workflow_dispatch:
@@ -19,15 +19,6 @@ jobs:
           sudo apt update
           sudo apt install -y curl unzip git sudo net-tools neofetch jq
 
-      - name: Install Tailscale
-        run: curl -fsSL https://tailscale.com/install.sh | sh
-
-      - name: Start Tailscale
-        run: |
-          sudo tailscaled &
-          sleep 8
-          sudo tailscale up --authkey ${{ secrets.TAILSCALE_AUTHKEY }} --hostname=biralo || echo "Tailscale already up"
-
       - name: Create user biralo with sudo
         run: |
           if ! id -u biralo >/dev/null 2>&1; then
@@ -36,12 +27,6 @@ jobs:
             sudo usermod -aG sudo biralo
             echo "biralo ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/biralo
           fi
-
-      - name: Get Tailscale IPv4 address
-        id: tailscale_ip
-        run: |
-          IP=$(tailscale ip -4 || echo "No IP found")
-          echo "ip=$IP" >> $GITHUB_OUTPUT
 
       - name: Install sshx
         run: curl -sSf https://sshx.io/get | sh
@@ -54,14 +39,27 @@ jobs:
           LINK=$(grep -m1 -o "https://sshx.io/s/[^ ]*" sshx.log || echo "")
           echo "link=$LINK" >> $GITHUB_OUTPUT
 
+      - name: Install tmate
+        run: sudo apt install -y tmate
+
+      - name: Start tmate session & get link
+        id: tmate_session
+        run: |
+          tmate -S /tmp/tmate.sock new-session -d
+          tmate -S /tmp/tmate.sock wait tmate-ready
+          SSH=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
+          WEB=$(tmate -S /tmp/tmate.sock display -p '#{tmate_web}')
+          echo "ssh=$SSH" >> $GITHUB_OUTPUT
+          echo "web=$WEB" >> $GITHUB_OUTPUT
+
       - name: Send Discord Webhook with VPS info
         run: |
           USER_ID="${{ github.event.client_payload.requester_id || '000000000000000000' }}"
           USER_TAG="${{ github.event.client_payload.requester_tag || github.actor }}"
-          IP="${{ steps.tailscale_ip.outputs.ip }}"
           SSHLINK="${{ steps.sshx_session.outputs.link }}"
+          TMATE_SSH="${{ steps.tmate_session.outputs.ssh }}"
+          TMATE_WEB="${{ steps.tmate_session.outputs.web }}"
 
-          # Build mention safely
           if [[ "$USER_ID" =~ ^[0-9]+$ ]] && [[ "$USER_ID" != "000000000000000000" ]]; then
             MENTION="<@${USER_ID}>"
           else
@@ -69,8 +67,9 @@ jobs:
           fi
 
           PAYLOAD=$(jq -n \
-            --arg ip "$IP" \
             --arg ssh "$SSHLINK" \
+            --arg tssh "$TMATE_SSH" \
+            --arg tweb "$TMATE_WEB" \
             --arg userid "$USER_ID" \
             --arg tag "$USER_TAG" \
             --arg username "biralo" \
@@ -85,8 +84,9 @@ jobs:
                   {name: "Requested by", value: $tag, inline: true},
                   {name: "Username", value: $username, inline: true},
                   {name: "Password", value: $password, inline: true},
-                  {name: "Tailscale IPv4", value: $ip, inline: true},
-                  {name: "🔑 SSHX Session", value: "[Open Web Terminal](\($ssh))", inline: false}
+                  {name: "🔑 SSHX Session", value: "[Open Web Terminal](\($ssh))", inline: false},
+                  {name: "🔑 Tmate SSH", value: $tssh, inline: false},
+                  {name: "🌍 Tmate Web", value: $tweb, inline: false}
                 ],
                 footer: {text: "Powered by Zerioak"}
               }]
