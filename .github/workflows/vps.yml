@@ -17,13 +17,8 @@ jobs:
       - name: Install prerequisites & Docker
         run: |
           sudo apt update
-          sudo apt install -y curl unzip git sudo net-tools neofetch jq python3 python3-pip tmate
+          sudo apt install -y curl unzip git sudo net-tools neofetch jq python3 python3-pip 
           
-          # Install Docker via official script (avoids containerd conflicts)
-          curl -fsSL https://get.docker.com -o get-docker.sh
-          sh get-docker.sh
-          sudo systemctl enable --now docker
-
       - name: Create user biralo with sudo
         run: |
           if ! id -u biralo >/dev/null 2>&1; then
