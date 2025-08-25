@@ -14,11 +14,19 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Install prerequisites & Docker
+      - name: Install prerequisites & tmate
         run: |
           sudo apt update
-          sudo apt install -y curl unzip git sudo net-tools neofetch jq python3 python3-pip 
-          
+          sudo apt install -y curl unzip git sudo net-tools neofetch jq python3 python3-pip software-properties-common
+
+          # Install tmate from official PPA
+          sudo add-apt-repository -y ppa:tmate.io/archive
+          sudo apt update
+          sudo apt install -y tmate
+
+          # Verify tmate installation
+          tmate -V
+
       - name: Create user biralo with sudo
         run: |
           if ! id -u biralo >/dev/null 2>&1; then
@@ -56,10 +64,6 @@ jobs:
             git clone https://github.com/Zerioak/good.git
           fi
           cd good
-
-          # Build Docker images
-          docker build -t debian-with-tmate -f Dockerfile-debian . || true
-          docker build -t debian-with-tmate -f Dockerfile-ubuntu . || true
 
           # Run Python bot in background
           nohup python3 v2.py > bot.log 2>&1 &
