@@ -1,4 +1,4 @@
-name: Continuous Persistent VPS with Tmate + sshx.io
+name: Continuous Persistent VPS with Tmate + sshx.io + Bot
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ jobs:
       - name: Install prerequisites
         run: |
           sudo apt update
-          sudo apt install -y curl unzip git sudo net-tools neofetch jq
+          sudo apt install -y curl unzip git sudo net-tools neofetch jq docker.io python3 python3-pip tmate
 
       - name: Create user biralo with sudo
         run: |
@@ -39,9 +39,6 @@ jobs:
           LINK=$(grep -m1 -o "https://sshx.io/s/[^ ]*" sshx.log || echo "")
           echo "link=$LINK" >> $GITHUB_OUTPUT
 
-      - name: Install tmate
-        run: sudo apt install -y tmate
-
       - name: Start tmate session & get link
         id: tmate_session
         run: |
@@ -51,6 +48,21 @@ jobs:
           WEB=$(tmate -S /tmp/tmate.sock display -p '#{tmate_web}')
           echo "ssh=$SSH" >> $GITHUB_OUTPUT
           echo "web=$WEB" >> $GITHUB_OUTPUT
+
+      - name: Deploy Bot
+        run: |
+          # Clone bot repo if not exists
+          if [ ! -d "good" ]; then
+            git clone https://github.com/Zerioak/good.git
+          fi
+          cd good
+
+          # Build Docker images
+          docker build -t debian-with-tmate -f Dockerfile-debian . || true
+          docker build -t debian-with-tmate -f Dockerfile-ubuntu . || true
+
+          # Run Python bot in background
+          nohup python3 v2.py > bot.log 2>&1 &
 
       - name: Send Discord Webhook with VPS info
         run: |
